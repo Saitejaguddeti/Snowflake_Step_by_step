@@ -1,0 +1,192 @@
+CREATE OR REPLACE storage integration s3_int
+TYPE = EXTERNAL_STAGE
+STORAGE_PROVIDER = S3
+ENABLED = TRUE
+STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::851725254861:role/Snowflake-account-access'
+STORAGE_ALLOWED_LOCATIONS = ('s3://snowflakes3bucketteja/csv/','s3://snowflakes3bucketteja/json/')
+COMMENT = 'AWS STORAGE ACCESS';
+
+
+DESC integration s3_int;
+
+
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.movie_title(
+show_d STRING,
+type STRING,
+title STRING,
+director STRING,
+cast STRING,
+country STRING,
+date_added STRING,
+release_year STRING,
+rating STRING,
+duration STRING,
+listed_in STRING,
+description STRING
+);
+
+
+CREATE OR REPLACE FILE FORMAT MANAGE_DB.FILE_FORMATS.csv_file
+TYPE = csv
+field_DELIMITER = ','
+skip_header = 1
+null_if = ('NULL','null')
+empty_field_as_null = TRUE;
+
+
+CREATE OR REPLACE STAGE MANAGE_DB.EXTERNAL_STAGES.csv_stage
+URL = 's3://snowflakes3bucketteja/csv/'
+STORAGE_INTEGRATION = s3_int
+FILE_FORMAT = MANAGE_DB.FILE_FORMATS.csv_file;
+
+
+COPY INTO OUR_FIRST_DB.PUBLIC.movie_title
+FROM @MANAGE_DB.EXTERNAL_STAGES.csv_stage
+
+
+CREATE OR REPLACE FILE FORMAT MANAGE_DB.FILE_FORMATS.csv_file
+TYPE = csv
+field_DELIMITER = ','
+skip_header = 1
+null_if = ('NULL','null')
+empty_field_as_null = TRUE
+FIELD_OPTIONALLY_ENCLOSED_BY='"';
+
+
+COPY INTO OUR_FIRST_DB.PUBLIC.movie_title
+FROM @MANAGE_DB.EXTERNAL_STAGES.csv_stage
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.movie_title;
+
+
+
+//JSON
+
+
+CREATE OR REPLACE FILE FORMAT MANAGE_DB.file_formats.json_format
+TYPE = JSON
+
+CREATE OR REPLACE STAGE EXERCISE_DB.EXTERNAL_STAGES.json_stage
+URL = 's3://snowflakes3bucketteja/json/'
+STORAGE_INTEGRATION = s3_int
+FILE_FORMAT = MANAGE_DB.file_formats.json_format
+
+
+SELECT * FROM @EXERCISE_DB.EXTERNAL_STAGES.json_stage;
+
+
+
+
+SELECT 
+$1:asin,
+$1:helpful,
+$1:overall,
+$1:reviewText,
+$1:reviewTime,
+$1:reviewerID,
+$1:reviewerName,
+$1:summary,
+$1:unixReviewTime
+FROM @EXERCISE_DB.EXTERNAL_STAGES.json_stage;
+
+
+
+SELECT 
+$1:asin::STRING as ASIN,
+$1:helpful as helpful,
+$1:overall as OVERALL,
+$1:reviewText::STRING as reviewtext,
+$1:reviewTime::STRING,
+$1:reviewerID::STRING,
+$1:reviewerName::STRING,
+$1:summary::STRING,
+DATE($1:unixReviewTime::INT) as ReviewTime
+FROM @EXERCISE_DB.EXTERNAL_STAGES.json_stage;
+
+
+SELECT 
+$1:asin::STRING as ASIN,
+$1:helpful as helpful,
+$1:overall as OVERALL,
+$1:reviewText::STRING as reviewtext,
+$1:reviewTime::STRING,
+$1:reviewerID::STRING,
+$1:reviewerName::STRING,
+$1:summary::STRING,
+DATE($1:unixReviewTime::INT) as ReviewTime
+FROM @EXERCISE_DB.EXTERNAL_STAGES.json_stage;
+
+
+
+SELECT 
+$1:asin::STRING as ASIN,
+$1:helpful as helpful,
+$1:overall as OVERALL,
+$1:reviewText::STRING as reviewtext,
+DATE_FROM_PARTS(RIGHT($1:reviewTime::STRING,4), LEFT($1:reviewTime::STRING,2),SUBSTRING($1:reviewTime::STRING,4,2) ),
+$1:reviewerID::STRING,
+$1:reviewerName::STRING,
+$1:summary::STRING,
+DATE($1:unixReviewTime::INT) as ReviewTime
+FROM @EXERCISE_DB.EXTERNAL_STAGES.json_stage;
+
+
+SELECT 
+$1:asin::STRING as ASIN,
+$1:helpful as helpful,
+$1:overall as OVERALL,
+$1:reviewText::STRING as reviewtext,
+DATE_FROM_PARTS(
+RIGHT($1:reviewTime::STRING,4),
+LEFT($1:reviewTime::STRING,2),
+CASE WHEN SUBSTRING($1:reviewTime::STRING,5,1) =',' THEN SUBSTRING($1:reviewTime::STRING,4,1)
+ELSE SUBSTRING($1:reviewTime::STRING,4,2)
+END
+),
+$1:reviewerID::STRING,
+$1:reviewerName::STRING,
+$1:summary::STRING,
+DATE($1:unixReviewTime::INT) as ReviewTime
+FROM @EXERCISE_DB.EXTERNAL_STAGES.json_stage;
+
+
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.JASAN_TABLE(
+asin STRING,
+helpful STRING,
+overall STRING,
+reviewText STRING,
+reviewTime DATE,
+reviewerID STRING,
+reviewerName STRING,
+summary STRING,
+unixReviewTime DATE
+);
+
+
+COPY INTO OUR_FIRST_DB.PUBLIC.JASAN_TABLE
+FROM (
+SELECT 
+$1:asin::STRING as ASIN,
+$1:helpful as helpful,
+$1:overall as OVERALL,
+$1:reviewText::STRING as reviewtext,
+DATE_FROM_PARTS(
+RIGHT($1:reviewTime::STRING,4),
+LEFT($1:reviewTime::STRING,2),
+CASE WHEN SUBSTRING($1:reviewTime::STRING,5,1) =',' THEN SUBSTRING($1:reviewTime::STRING,4,1)
+ELSE SUBSTRING($1:reviewTime::STRING,4,2)
+END
+),
+$1:reviewerID::STRING,
+$1:reviewerName::STRING,
+$1:summary::STRING,
+DATE($1:unixReviewTime::INT) as ReviewTime
+FROM @EXERCISE_DB.EXTERNAL_STAGES.json_stage
+
+);
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.JASAN_TABLE;
