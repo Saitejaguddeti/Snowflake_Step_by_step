@@ -1,0 +1,351 @@
+// Database to manage stage objects, fileformats etc.
+
+CREATE OR REPLACE DATABASE MANAGE_DB;
+
+CREATE OR REPLACE SCHEMA external_stages;
+
+
+// Creating external stage
+
+CREATE OR REPLACE STAGE MANAGE_DB.external_stages.aws_stage
+    url='s3://bucketsnowflakes3'
+    credentials=(aws_key_id='ABCD_DUMMY_ID' aws_secret_key='1234abcd_key');
+
+
+// Description of external stage
+
+DESC STAGE MANAGE_DB.external_stages.aws_stage; 
+    
+    
+// Alter external stage   
+
+ALTER STAGE aws_stage
+    SET credentials=(aws_key_id='XYZ_DUMMY_ID' aws_secret_key='987xyz');
+    
+    
+// Publicly accessible staging area    
+
+CREATE OR REPLACE STAGE MANAGE_DB.external_stages.aws_stage
+    url='s3://bucketsnowflakes3';
+
+// List files in stage
+
+LIST @aws_stage;
+
+create or replace table our_first_db.public.orders(
+ORDER_ID varchar(30),
+AMOUNT INT,
+PROFIT INT,
+QUALITY INT,
+CATEGORY VARCHAR(30),
+SUBCATEGORY VARCHAR(30)
+);
+
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS
+    FROM @aws_stage
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    pattern='.*Order.*';
+
+select * from OUR_FIRST_DB.PUBLIC.ORDERS;
+
+
+
+
+
+
+
+create or replace table customer(
+ID INT,
+FIRST_NAME VARCHAR,
+LAST_NAME VARCHAR,
+EMAIL VARCHAR,
+AGE INT,
+CITY VARCHAR
+)
+
+CREATE OR REPLACE STAGE EXERCISE_DB.EXTERNAL_STAGES.AWS_STAGE_COPY
+URL='s3://snowflake-assignments-mc/loadingdata/'
+
+LIST @EXERCISE_DB.EXTERNAL_STAGES.AWS_STAGE_COPY
+
+COPY INTO CUSTOMER
+FROM @EXERCISE_DB.EXTERNAL_STAGES.AWS_STAGE_COPY
+FILE_FORMAT=(TYPE='CSV', FIELD_DELIMITER=';', SKIP_HEADER=1)
+
+SELECT COUNT(*) FROM CUSTOMER
+
+
+
+
+
+
+//COPY SPECIFIC FIELDS TO TABLE 
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX(
+ORDER_ID VARCHAR(30),
+AMOUNT INT
+)
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+        FROM (
+        SELECT 
+            s.$1,s.$2
+            from @MANAGE_DB.external_stages.aws_stage s)
+        file_format =(type = csv field_delimiter = ',' skip_header = 1)
+        files = ('OrderDetails.csv');
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+
+//USE CASE STATEMENT TO ADD ADDITION FIELS VALUES That are not in stage
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX(
+ORDER_ID VARCHAR(30),
+AMOUNT INT,
+PROFIT INT,
+PROFITABLE_FLAG VARCHAR(30)
+)
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+        FROM (
+        SELECT 
+            s.$1,s.$2,S.$3,
+            CASE WHEN CAST(S.$3 AS INT)<0 THEN 'not profitable' ELSE 'profitable' END 
+            from @MANAGE_DB.external_stages.aws_stage s)
+        file_format =(type = csv field_delimiter = ',' skip_header = 1)
+        files = ('OrderDetails.csv');
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+
+
+
+//USE SUBSTRING FUNCTION 
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_SUBSTRING(
+ORDER_ID VARCHAR(30),
+AMOUNT INT,
+PROFIT INT,
+CATEGORY_SUBSTRING VARCHAR(30)
+)
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_SUBSTRING
+        FROM (
+        SELECT 
+            s.$1,
+            s.$2,
+            s.$3,
+            substring(s.$5,1,5) 
+            from @MANAGE_DB.external_stages.aws_stage s)
+        file_format =(type = csv field_delimiter = ',' skip_header = 1)
+        files = ('OrderDetails.csv');
+
+        
+        
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_SUBSTRING;
+
+
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_SUBSET(
+ORDER_ID VARCHAR(30),
+AMOUNT INT,
+PROFIT INT,
+PROFITABLE_FLAG VARCHAR(30)
+)
+
+
+
+//Using SUBSET of COLUMNS
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_SUBSET(ORDER_ID,PROFIT)
+        FROM (
+        SELECT 
+            s.$1,
+            s.$3
+            from @MANAGE_DB.external_stages.aws_stage s)
+        file_format =(type = csv field_delimiter = ',' skip_header = 1)
+        files = ('OrderDetails.csv');
+        
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_SUBSET;
+
+
+
+//AUTO INCREMENT
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_AUTO_INCREMENT(
+ORDER_ID number autoincrement start 1 increment 1,
+AMOUNT INT,
+PROFIT INT,
+PROFITABLE_FLAG VARCHAR(30)
+)
+
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_AUTO_INCREMENT(AMOUNT,PROFIT)
+        FROM (
+        SELECT 
+            s.$2,
+            s.$3
+            from @MANAGE_DB.external_stages.aws_stage s)
+        file_format =(type = csv field_delimiter = ',' skip_header = 1)
+        files = ('OrderDetails.csv');
+        
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_AUTO_INCREMENT;
+
+
+
+
+CREATE OR REPLACE STAGE MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+URL = 's3://bucketsnowflakes4';
+
+LIST @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS;
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_ERRORS(
+ORDER_ID VARCHAR(30),
+AMOUNT INT,
+PROFIT INT,
+QUALITY INT,
+CATEGORY VARCHAR(30),
+SUBCATEGORY VARCHAR(30)
+);
+
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_ERRORS
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (type = csv field_delimiter = ',' skip_header =1)
+files = ('OrderDetails_error.csv');
+
+// LOAD THE DATA EVEN IF WE HAVE ERRORS IN IT
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_ERRORS
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (type = csv field_delimiter = ',' skip_header =1)
+files = ('OrderDetails_error.csv')
+ON_ERROR = 'CONTINUE';
+
+
+select * from OUR_FIRST_DB.PUBLIC.ORDERS_ERRORS;
+
+TRUNCATE TABLE  OUR_FIRST_DB.PUBLIC.ORDERS_ERRORS;
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT(
+ORDER_ID VARCHAR(30),
+AMOUNT INT,
+PROFIT INT,
+QUALITY INT,
+CATEGORY VARCHAR(30),
+SUBCATEGORY VARCHAR(30)
+);
+
+//LOAD FAILS IF WE HAVE ERRORS
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (type = csv field_delimiter = ',' skip_header =1)
+files = ('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+ON_ERROR = 'ABORT_STATEMENT';
+
+//SKIP THE FILE IF IT HAS ERRORS
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (type = csv field_delimiter = ',' skip_header =1)
+files = ('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+ON_ERROR = 'skip_file';
+
+select * from OUR_FIRST_DB.PUBLIC.ORDERS_ERROR_abort;
+
+
+TRUNCATE TABLE  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT;
+
+
+//SKIPS THE if it has more than 3 errors FILE
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (type = csv field_delimiter = ',' skip_header =1)
+files = ('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+ON_ERROR = 'skip_file_3';
+
+select * from OUR_FIRST_DB.PUBLIC.ORDERS_ERROR_abort
+
+
+TRUNCATE TABLE  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT;
+
+//SKIPS THE if it has more than 3% errors FILE
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (type = csv field_delimiter = ',' skip_header =1)
+files = ('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+ON_ERROR = 'skip_file_3%';
+
+select * from OUR_FIRST_DB.PUBLIC.ORDERS_ERROR_abort
+
+
+
+//create schema for file format
+CREATE OR REPLACE SCHEMA MANAGE_DB.file_formats;
+
+//create a file format object
+CREATE OR REPLACE file format MANAGE_DB.file_formats.my_file_format;
+
+//See the properties of the file format object
+DESC file format MANAGE_DB.file_formats.my_file_format;
+
+
+TRUNCATE TABLE  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT;
+
+// File will not copy as skip_header in file format is 0
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (FORMAT_NAME=MANAGE_DB.file_formats.my_file_format)
+files = ('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+ON_ERROR = 'skip_file_3%';
+
+Alter file format MANAGE_DB.file_formats.my_file_format set SKIP_HEADER = 1;
+
+COPY INTO  OUR_FIRST_DB.PUBLIC.ORDERS_Error_ABORT
+FROM @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_ERRORS
+file_format = (FORMAT_NAME=MANAGE_DB.file_formats.my_file_format)
+files = ('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+ON_ERROR = 'skip_file_3%';
+
+CREATE or REPLACE STAGE MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_Loading_data
+url = 's3://snowflake-assignments-mc/fileformat/';
+
+CREATE OR REPLACE file format MANAGE_DB.file_formats.Loading_date_file_format;
+
+ALTER file format MANAGE_DB.file_formats.Loading_date_file_format set field_delimiter = '|';
+
+ALTER file format MANAGE_DB.file_formats.Loading_date_file_format set skip_header =1;
+
+DESC file format MANAGE_DB.file_formats.Loading_date_file_format;
+
+LIST @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_Loading_data;
+
+create or replace table customer(
+ID INT,
+FIRST_NAME VARCHAR,
+LAST_NAME VARCHAR,
+EMAIL VARCHAR,
+AGE INT,
+CITY VARCHAR
+)
+
+
+COPY INTO customer 
+From @MANAGE_DB.EXTERNAL_STAGES.AWS_STAGE_Loading_data
+file_format=(FORMAT_NAME= MANAGE_DB.file_formats.Loading_date_file_format)
+
+select count(*) from customer;
+
+
+CREATE OR REPLACE TABLE e(
+o_id number autoincrement start 1 increment 1,
+NAME STRING
+);
+
+
+INSERT INTO e(NAME) VALUES('SAI');
+
+INSERT INTO e(NAME) VALUES('SAI');
+
+INSERT INTO e(NAME) VALUES('SAI');
+INSERT INTO e(NAME) VALUES('SAI');
+
+INSERT INTO e(NAME) VALUES('SAI');
+
+INSERT INTO e(NAME) VALUES('SAI');
+
+SELECT * FROM e;
+
