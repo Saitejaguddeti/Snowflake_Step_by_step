@@ -1,0 +1,169 @@
+//STREAM INSERT
+CREATE OR REPLACE DATABASE STREAM_DB;
+
+
+CREATE OR REPLACE TABLE sales_raw_staging;(
+id varchar,
+product varchar,
+price varchar,
+amount varchar,
+store_id varchar
+);
+
+INSERT INTo SALES_RAW_STAGING VALUES(1,'Banana',1.99,1,1),(2,'Lemon',1.9,4,1),(3,'Mango',1.9,3,2),(4,'Orange',1.9,6,1),(5,'Grape',1.9,2,2);
+
+SELECT * FROM sales_raw_staging;
+
+
+CREATE OR REPLACE TABLE store_table(
+store_id number,
+Location Varchar,
+employees number
+);
+
+
+Insert INTO store_table values (1,'chicago',32),(2,'London',12);
+
+
+CREATE OR REPLACE TABLE Sales_final_table(
+id varchar,
+product varchar,
+price varchar,
+amount varchar,
+store_id varchar,
+Location Varchar,
+employees number
+);
+
+
+Insert INTO Sales_final_table
+SELECT 
+id varchar,
+product varchar,
+price varchar,
+amount varchar,
+SA.Store_id,
+Location Varchar,
+employees number
+FRom sales_raw_staging SA
+JOIN store_table St
+on SA.store_id = st.Store_id;
+
+
+CREATE OR REPLACE STREAM sales_stream on table sales_raw_staging;
+
+SELECT * FROM sales_stream;
+
+INSERT INTO SALES_RAW_STAGING VALUES(6,'KIWI',1.69,1,2),(7,'DRAGON FRUIT',1.88,4,1);
+
+
+Insert INTO Sales_final_table 
+SELECT 
+id ,
+product ,
+price ,
+amount,
+SM.Store_id,
+Location ,
+employees 
+FRom sales_stream SM
+JOIN store_table St
+on SM.store_id = st.Store_id;
+
+
+SELECT * FROM sales_final_table;
+
+SHOW STREAMS;
+
+
+//UPDATE
+
+UPDATE SALES_RAW_STAGING
+SET product = 'Potato'
+WHERE product = 'Banana';
+
+
+MERGE into Sales_final_table SF
+using sales_stream sm 
+on sf.id = sm.id
+when matched
+and sm.METADATA$ACTION = 'INSERT'
+and sm.METADATA$ISUPDATE = 'TRUE'
+then update
+set sf.product = sm.product,
+sf.amount = sf.amount,
+sf.price = sm.price,
+sf.store_id = sm.store_id;
+
+
+select * FROM Sales_final_table;
+
+
+UPDATE SALES_RAW_STAGING
+SET product = 'Lime'
+WHERE product = 'Lemon';
+
+
+
+DELETE FROM SALES_RAW_STAGING
+WHERE product = 'Lime'
+
+MERGE into Sales_final_table SF
+using sales_stream sm 
+on sf.id = sm.id
+when matched
+and sm.METADATA$ACTION = 'DELETE'
+and sm.METADATA$ISUPDATE = 'FALSE'
+then delete
+
+
+SELECT * FROM Sales_final_table;
+
+
+INSERT INTO SALES_RAW_STAGING VALUES (1,'pot1',1.99,1,1);
+INSERT INTO SALES_RAW_STAGING VALUES (1,'pot2',1.99,1,1);
+INSERT INTO SALES_RAW_STAGING VALUES (1,'pot3',1.99,1,1);
+
+SELECT * FROM SALES_RAW_STAGING;
+
+DELETE FROM SALES_RAW_STAGING
+WHERE product like '%pot%'
+
+
+CREATE TASK stream_task
+WAREHOUSE = COMPUTE_WH
+SCHEDULE = '1 Minute'
+WHEN SYSTEM$STREAM_HAS_DATA('sales_stream')
+AS
+MERGE INTO Sales_final_table sf
+USING (SELECT str.*,
+st.Location,
+st.employees FRom store_table st
+join sales_stream str
+ON st.store_id = str.store_id) s
+ON sf.id = s.id
+WHEN MATCHED
+and s.METADATA$ACTION = 'DELETE'
+and s.METADATA$ISUPDATE = 'FALSE'
+then delete
+WHEN MATCHED 
+and s.METADATA$ACTION = 'INSERT'
+and s.METADATA$ISUPDATE = 'TRUE'
+then update
+set 
+sf.id = s.id,
+sf.product = s.product,
+sf.amount = s.amount,
+sf.price = s.price,
+sf.store_id = s.store_id
+WHEN NOT MATCHED 
+and s.METADATA$ACTION = 'INSERT'
+Then
+INSERT (sf.id,sf.product,sf.amount,sf.price,sf.store_id,sf.location,sf.employees)
+Values(s.id,s.product,s.amount,s.price,s.store_id,s.location,s.employees);
+
+
+
+ALTER TASk stream_task RESUME;
+
+SHOW TASKS;
