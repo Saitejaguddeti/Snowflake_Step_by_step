@@ -1,0 +1,277 @@
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+GENDER STRING,
+job STRING,
+PHONE STRING
+);
+
+
+CREATE OR REPLACE FILE FORMAT MANAGE_DB.file_formats.time_travel
+TYPE = csv
+skip_header = 1
+field_delimiter = ','
+
+
+CREATE OR REPLACE STAGE EXERCISE_DB.external_stages.time_travel;
+URL = 's3://data-snowflake-fundamentals/time-travel/'
+file_format = MANAGE_DB.file_formats.time_travel;
+
+LIST @EXERCISE_DB.external_stages.time_travel;
+
+COPY INTO OUR_FIRST_DB.public.test
+FROM @EXERCISE_DB.external_stages.time_travel;
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+
+
+UPDATE OUR_FIRST_DB.public.test
+SET first_name = 'JORDAN';
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+
+SELECT * FROM OUR_FIRST_DB.public.test at (OFFSET => -60*2.5)
+
+
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+GENDER STRING,
+job STRING,
+PHONE STRING
+);
+
+
+CREATE OR REPLACE STAGE EXERCISE_DB.external_stages.time_travel
+URL = 's3://data-snowflake-fundamentals/time-travel/'
+file_format = MANAGE_DB.file_formats.time_travel;
+
+COPY INTO OUR_FIRST_DB.public.test
+FROM @EXERCISE_DB.external_stages.time_travel;
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+UPDATE OUR_FIRST_DB.public.test
+set email = 'NULL';
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+
+//QUERY ID
+SELECT * FROM OUR_FIRST_DB.public.test before (statement =>'01b442db-0205-2297-0005-a0430004022a');
+
+
+
+//Backup
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+GENDER STRING,
+job STRING,
+PHONE STRING
+);
+
+
+CREATE OR REPLACE STAGE EXERCISE_DB.external_stages.time_travel
+URL = 's3://data-snowflake-fundamentals/time-travel/'
+file_format = MANAGE_DB.file_formats.time_travel;
+
+COPY INTO OUR_FIRST_DB.public.test
+FROM @EXERCISE_DB.external_stages.time_travel;
+
+
+UPDATE OUR_FIRST_DB.public.test
+SET first_name = 'TYSON';
+UPDATE OUR_FIRST_DB.public.test
+SET JOB = 'DATA ANALYST';
+
+//BAD PRACTICE 
+SELECT * FROM OUR_FIRST_DB.public.test before (statement => '01b442ee-0205-2297-0005-a04300040262')
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test as SELECT * FROM OUR_FIRST_DB.public.test before (statement => '01b442ee-0205-2297-0005-a04300040262');
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test as SELECT * FROM OUR_FIRST_DB.public.test before (statement => '01b442ed-0205-2294-0005-a04300048212');
+
+//Best Approach
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+GENDER STRING,
+job STRING,
+PHONE STRING
+);
+
+
+CREATE OR REPLACE STAGE EXERCISE_DB.external_stages.time_travel
+URL = 's3://data-snowflake-fundamentals/time-travel/'
+file_format = MANAGE_DB.file_formats.time_travel;
+
+COPY INTO OUR_FIRST_DB.public.test
+FROM @EXERCISE_DB.external_stages.time_travel;
+
+
+UPDATE OUR_FIRST_DB.public.test
+SET first_name = 'TYSON';
+UPDATE OUR_FIRST_DB.public.test
+SET JOB = 'DATA ANALYST';
+
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test_backup as SELECT * FROM OUR_FIRST_DB.public.test before (statement => '01b442f2-0205-228e-0005-a0430004727a');
+
+TRUNCATE OUR_FIRST_DB.public.test;
+
+INSERT INTO OUR_FIRST_DB.public.test 
+SELECT * FROM OUR_FIRST_DB.public.test_backup;
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test_backup as SELECT * FROM OUR_FIRST_DB.public.test before (statement => '01b442f2-0205-2291-0005-a0430004226e');
+
+TRUNCATE OUR_FIRST_DB.public.test;
+
+INSERT INTO OUR_FIRST_DB.public.test 
+SELECT * FROM OUR_FIRST_DB.public.test_backup;
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+
+
+
+
+//UNDROP
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+GENDER STRING,
+job STRING,
+PHONE STRING
+);
+
+
+CREATE OR REPLACE STAGE EXERCISE_DB.external_stages.time_travel
+URL = 's3://data-snowflake-fundamentals/time-travel/'
+file_format = MANAGE_DB.file_formats.time_travel;
+
+COPY INTO OUR_FIRST_DB.public.test
+FROM @EXERCISE_DB.external_stages.time_travel;
+
+SELECT * FROM  OUR_FIRST_DB.public.test;
+
+
+DROP TABLE OUR_FIRST_DB.public.test;
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+
+UNDROP TABLE OUR_FIRST_DB.public.test;
+
+DROP SCHEMA OUR_FIRST_DB;.public;
+
+UNDROP SCHEMA OUR_FIRST_DB.public;
+
+DROP DATABASE OUR_FIRST_DB;
+
+UNDROP DATABASE OUR_FIRST_DB;
+
+
+
+//RESTORE 
+
+UPDATE OUR_FIRST_DB.public.test
+SET first_name = 'TYSON';
+UPDATE OUR_FIRST_DB.public.test
+SET JOB = 'DATA ANALYST';
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test as SELECT * FROM OUR_FIRST_DB.public.test before (statement => '01b443eb-0205-240f-0005-a0430003f38e');
+
+SELECT * FROM OUR_FIRST_DB.public.test;
+
+UNDROP TABLE OUR_FIRST_DB.public.test;
+
+ALTER TABLE OUR_FIRST_DB.public.test
+RENAME TO OUR_FIRST_DB.public.test_1;
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test as SELECT * FROM OUR_FIRST_DB.public.test before (statement => '01b443eb-0205-2298-0005-a0430004a33e');
+
+
+SHOW TABLEs in schema OUR_FIRST_DB.public;
+
+ALTER TABLE OUR_FIRST_DB.public.test
+SET DATA_RETENTION_TIME_IN_DAYS = 3;
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.test_3;(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+GENDER STRING,
+job STRING,
+PHONE STRING
+)
+DATA_RETENTION_TIME_IN_DAYS = 3;
+
+SHOW TABLEs like '%TEST%';
+
+
+//TIME TRAVEL COST
+SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.STORAGE_USAGE;
+
+
+SELECT * FROM SNOWFLAKE.ACCOUNT_USAGE.TABLE_STORAGE_METRICS;
+
+
+SELECT 
+ID,
+TABLE_NAME,
+TABLE_SCHEMA,
+TABLE_CATALOG,
+ACTIVE_BYTES/(1024*1024*1024)  AS STORAGE_USED_IN_GB,
+TIME_TRAVEL_BYTES/(1024*1024*1024) AS TIME_TRAVEL_STORAGE_USED_IN_GB
+FROM SNOWFLAKE.ACCOUNT_USAGE.TABLE_STORAGE_METRICS
+ORDER BY STORAGE_USED_IN_GB DESC,TIME_TRAVEL_STORAGE_USED_IN_GB DESC;
+
+
+
+
+
+
+
+//ASSIGNMENT
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.time_travel_assignment
+AS
+SELECT * FROM "SNOWFLAKE_SAMPLE_DATA"."TPCH_SF1"."PART";
+ 
+SELECT * FROM OUR_FIRST_DB.public.time_travel_assignment
+ORDER BY P_MFGR DESC;
+
+UPDATE OUR_FIRST_DB.public.time_travel_assignment
+SET P_MFGR='Manufacturer#CompanyX'
+WHERE P_MFGR='Manufacturer#5';
+
+SELECT * FROM OUR_FIRST_DB.public.time_travel_assignment at (OFFSET => -60*1.0)
+
+SELECT * FROM OUR_FIRST_DB.public.time_travel_assignment before (statement => '01b442e0-0205-2297-0005-a0430004023e')
+
+//UNDROP ASSIGNMENT
+CREATE DATABASE TIMETRAVEL_EXERCISE;
+CREATE SCHEMA TIMETRAVEL_EXERCISE.COMPANY_X;
+
+CREATE TABLE TIMETRAVEL_EXERCISE.COMPANY_X.CUSTOMER AS
+SELECT * FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER
+LIMIT 500;
+
+DROP SCHEMA TIMETRAVEL_EXERCISE.COMPANY_X;
+
+
+SELECT * FROM TIMETRAVEL_EXERCISE.COMPANY_X;.CUSTOMER;
+
+UNDROP SCHEMA TIMETRAVEL_EXERCISE.COMPANY_X;
