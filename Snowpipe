@@ -1,0 +1,119 @@
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.employee(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+location STRING,
+department STRING
+);
+
+
+CREATE OR REPLACE file format MANAGE_DB.file_formats.snowpipe_employee
+TYPE = csv
+field_delimiter = ','
+skip_header = 1
+null_if=('NULL','null')
+empty_field_as_null = TRUE
+
+
+CREATE OR REPLACE STAGE EXERCISE_DB.external_stages.snowpipe_employee
+URL = 's3://snowflakes3bucketteja/csv/snowpipe_employee'
+STORAGE_INTEGRATION = s3_int
+FILE_FORMAT = MANAGE_DB.file_formats.snowpipe_employee;
+
+LIST @EXERCISE_DB.external_stages.snowpipe_employee;
+
+CREATE OR REPLACE SCHEMA MANAGE_DB.pipe;
+
+
+CREATE OR REPLACE PIPE MANAGE_DB.pipe.employee_pipe
+auto_ingest = TRUE
+AS
+COPY INTO OUR_FIRST_DB.public.employee
+FROM @EXERCISE_DB.external_stages.snowpipe_employee;
+
+
+DESC PIPE MANAGE_DB.pipe.employee_pipe;
+
+CREATE OR REPLACE file format MANAGE_DB.file_formats.snowpipe_employee
+TYPE = csv
+field_delimiter = '|'
+skip_header = 1
+null_if=('NULL','null')
+empty_field_as_null = TRUE
+
+ALTER PIPE MANAGE_DB.pipe.employee_pipe refresh;
+
+SELECT * FROM OUR_FIRST_DB.public.employee;
+
+//validate pipe is actually working
+SELECT SYSTEM$PIPE_STATUS('employee_pipe');
+
+//Snowpipe error message
+SELECT * FROM TABLE(VALIDATE_PIPE_LOAD(
+PIPE_NAME => 'MANAGE_DB.pipe.employee_pipe',
+START_TIME => DATEADD(HOUR,-2,CURRENT_TIMESTAMP())
+))
+
+//COPY HISTORY from table to see error message
+SELECT * FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+table_name => 'OUR_FIRST_DB.public.employee',
+START_TIME => DATEADD(HOUR,-2,CURRENT_TIMESTAMP())
+))
+
+
+
+//MANAGING PIPES
+
+DESC PIPE MANAGE_DB.pipe.employee_pipe;
+
+SHOW PIPES;
+
+SHOW PIPES like '%employee%';
+
+SHOW PIPES IN DATABASE MANAGE_DB;
+
+SHOW PIPES IN schema MANAGE_DB.PIPE;
+
+SHOW PIPES like '%employee%' in DATABASE MANAGE_DB;
+
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.public.employee2(
+id int,
+first_name STRING,
+last_name STRING,
+email STRING,
+location STRING,
+department STRING
+);
+
+
+ALTER PIPE MANAGE_DB.pipe.employee_pipe SET PIPE_EXECUTION_PAUSED = TRUE;
+
+SELECT SYSTEM$PIPE_STATUS('employee_pipe');
+
+CREATE OR REPLACE PIPE MANAGE_DB.pipe.employee_pipe
+auto_ingest = TRUE
+AS
+COPY INTO OUR_FIRST_DB.public.employee2;
+FROM @EXERCISE_DB.external_stages.snowpipe_employee;
+
+LIST @EXERCISE_DB.external_stages.snowpipe_employee;
+
+
+COPY INTO OUR_FIRST_DB.public.employee2
+FROM @EXERCISE_DB.external_stages.snowpipe_employee;
+
+
+ALTER PIPE MANAGE_DB.pipe.employee_pipe SET PIPE_EXECUTION_PAUSED = FALSE;
+
+
+SELECT SYSTEM$PIPE_STATUS('employee_pipe');
+
+
+SELECT * FROM OUR_FIRST_DB.public.employee2;
+
+SELECT * FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
+table_name => 'OUR_FIRST_DB.public.employee2',
+START_TIME => DATEADD(HOUR,-2,CURRENT_TIMESTAMP())
+))
