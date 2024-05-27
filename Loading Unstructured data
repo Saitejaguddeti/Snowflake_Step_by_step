@@ -1,0 +1,265 @@
+CREATE OR REPLACE stage EXERCISE_DB.EXTERNAL_STAGES.JASONSTAGE
+URL = 's3://bucketsnowflake-jsondemo';
+
+LIST @EXERCISE_DB.EXTERNAL_STAGES.JASONSTAGE;
+
+CREATE OR REPLACE file format MANAGE_DB.FILE_FORMATS.JSONFORMAT
+TYPE = JSON;
+
+CREATE OR REPLACE table OUR_FIRST_DB.PUBLIC.JSON_RAW(
+raw_file variant
+);
+
+Select * FROM OUR_FIRST_DB.PUBLIC.JSON_RAW
+;
+
+COPY INTO OUR_FIRST_DB.PUBLIC.JSON_RAW
+FROM @EXERCISE_DB.EXTERNAL_STAGES.JASONSTAGE
+file_format = (FORMAT_NAME = MANAGE_DB.FILE_FORMATS.JSONFORMAT)
+files = ('HR_data.json');
+
+
+Select * FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+
+
+//Transforming
+
+
+SELECT RAW_FILE:city from OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+SELECT $1:first_name from OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+SELECT $1:first_name::STRING as first_name from OUR_FIRST_DB.PUBLIC.JSON_RAW;
+SELECT RAW_FILE:id from OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+SELECT
+   RAW_FILE:id::int as id,
+   RAW_FILE:first_name::string as first_name,
+   RAW_FILE:last_name::string as last_name,
+   RAW_FILE:gender::string as gender
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+
+
+//Handling Nested Data
+SELECT RAW_FILE:job from OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+SELECT 
+      RAW_FILE:first_name::string as first_name,
+      RAW_FILE:job.salary::int as salary,
+      RAW_FILE:job.title::string as title
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+      
+
+//Handling Arrays
+SELECT
+     RAW_FILE:prev_company as prev_company
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+SELECT
+     RAW_FILE:prev_company[0]::STRING as prev_company
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+
+SELECT
+     ARRAY_SIZE(RAW_FILE:prev_company) as prev_company
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+
+SELECT 
+      RAW_FILE:id::int as id,
+      RAW_FILE:first_name::string as first_name,
+      RAW_FILE:job.salary::int as salary,
+      RAW_FILE:job.title::string as title,
+      RAW_FILE:prev_company[0]::string as prev_company
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW
+UNION ALL
+SELECT 
+      RAW_FILE:id::int as id,
+      RAW_FILE:first_name::string as first_name,
+      RAW_FILE:job.salary::int as salary,
+      RAW_FILE:job.title::string as title,
+      RAW_FILE:prev_company[1]::string as prev_company
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW
+ORDER BY id;
+
+
+SELECT RAW_FILE:spoken_languages as spoken_language FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+SELECT 
+     RAW_FILE:first_name::string as first_name,
+     array_size(RAW_FILE:spoken_languages) as spoken_language
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+SELECT 
+     RAW_FILE:first_name::string as first_name,
+     RAW_FILE:spoken_languages[0] as spoken_language
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+
+SELECT 
+     RAW_FILE:first_name::string as first_name,
+     RAW_FILE:spoken_languages[0].language::string as spoken_language,
+     RAW_FILE:spoken_languages[0].level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW;
+
+
+
+SELECT 
+    RAW_FILE:id::int as id,
+     RAW_FILE:first_name::string as first_name,
+     RAW_FILE:spoken_languages[0].language::string as spoken_language,
+     RAW_FILE:spoken_languages[0].level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW
+UNION ALL
+SELECT 
+      RAW_FILE:id::int as id,
+     RAW_FILE:first_name::string as first_name,
+     RAW_FILE:spoken_languages[1].language::string as spoken_language,
+     RAW_FILE:spoken_languages[1].level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW
+UNION ALL
+SELECT 
+      RAW_FILE:id::int as id,
+     RAW_FILE:first_name::string as first_name,
+     RAW_FILE:spoken_languages[2].language::string as spoken_language,
+     RAW_FILE:spoken_languages[2].level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW
+order by id;
+
+SELECT 
+     RAW_FILE:first_name::string as first_name,
+     f.value:language::string as spoken_language,
+     f.value:level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW, table(flatten(RAW_FILE:spoken_languages)) f;
+
+
+CREATE OR REPLACE TABLE oUR_FIRST_DB.PUBLIC.LANGUAGES AS
+SELECT 
+     RAW_FILE:first_name::string as first_name,
+     f.value:language::string as spoken_language,
+     f.value:level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW, table(flatten(RAW_FILE:spoken_languages)) f;
+
+SELECT * FROM oUR_FIRST_DB.PUBLIC.LANGUAGES;
+
+TRUNCATE TABLE oUR_FIRST_DB.PUBLIC.LANGUAGES;
+
+INSERT INTO oUR_FIRST_DB.PUBLIC.LANGUAGES
+SELECT 
+     RAW_FILE:first_name::string as first_name,
+     f.value:language::string as spoken_language,
+     f.value:level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW, table(flatten(RAW_FILE:spoken_languages)) f;
+
+SELECT 
+     RAW_FILE:first_name::string as first_name,
+     f.value:prev_company::STRING as prev_company,
+     f.value:language::string as spoken_language,
+     f.value:level::string as level
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW, table(flatten(RAW_FILE:spoken_languages)) f;
+
+//Parquet DATA
+
+CREATE OR REPLACE file format MANAGE_DB.FILE_FORMATS.parquetdata;
+TYPE = 'parquet';
+
+CREATE OR REPLACE STAGE EXERCISE_DB.EXTERNAL_STAGES.parquetdata
+url = 's3://snowflakeparquetdemo'
+File_format = MANAGE_DB.FILE_FORMATS.parquetdata;
+
+
+LIST @EXERCISE_DB.EXTERNAL_STAGES.parquetdata;
+
+SELECT * FROM @EXERCISE_DB.EXTERNAL_STAGES.parquetdata;
+
+CREATE OR REPLACE STAGE EXERCISE_DB.EXTERNAL_STAGES.parquetdata
+url = 's3://snowflakeparquetdemo';
+
+SELECT * FROM @EXERCISE_DB.EXTERNAL_STAGES.parquetdata
+(file_format=>'MANAGE_DB.FILE_FORMATS.parquetdata');
+
+
+USE MANAGE_DB.FILE_FORMATS;
+
+SELECT * FROM @EXERCISE_DB.EXTERNAL_STAGES.parquetdata
+(file_format=>MANAGE_DB.FILE_FORMATS.parquetdata);
+
+
+
+
+SELECT 
+$1:__index_level_0__::int as index_level,
+$1:cat_id::VARCHAR(50) as category,
+DATE($1:date::int) as Date,
+$1:"dept_id"::VARCHAR(50) as department_id,
+$1:"id"::VARCHAR(50) as ID,
+$1:"item_id"::VARCHAR(50) as item_id,
+$1:"state_id"::VARCHAR(50) as state_id,
+$1:"store_id"::VARCHAR(50) as store_id,
+$1:"value"::int as value
+FROM @EXERCISE_DB.EXTERNAL_STAGES.parquetdata;
+
+
+SELECT 
+$1:__index_level_0__::int as index_level,
+$1:cat_id::VARCHAR(50) as category,
+DATE($1:date::int) as Date,
+$1:"dept_id"::VARCHAR(50) as department_id,
+$1:"id"::VARCHAR(50) as ID,
+$1:"item_id"::VARCHAR(50) as item_id,
+$1:"state_id"::VARCHAR(50) as state_id,
+$1:"store_id"::VARCHAR(50) as store_id,
+$1:"value"::int as value,
+METADATA$FILENAME as FILE_NAME,
+METADATA$FILE_ROW_NUMBER as ROW_NUMBERs,
+TO_TIMESTAMP_NTZ(CURRENT_TIMESTAMP) as load_date
+FROM @EXERCISE_DB.EXTERNAL_STAGES.parquetdata;
+
+
+//Assignment JSON
+
+CREATE OR REPLACE stage EXERCISE_DB.EXTERNAL_STAGES.parquetdata
+url = 's3://snowflakeparquetdemo'.JSONASIGNMENT
+URL = 's3://snowflake-assignments-mc/unstructureddata/';
+
+LIST @EXERCISE_DB.EXTERNAL_STAGES.JSONASIGNMENT;
+
+CREATE OR REPLACE FILE FORMAT oUR_FIRST_DB.PUBLIC.LANGUAGES.JSONASSIGNMENT
+TYPE = JSON;
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.JSON_RAW_assignment(
+raw_file variant 
+);
+
+COPY INTO OUR_FIRST_DB.PUBLIC.JSON_RAW_assignment
+FROM @EXERCISE_DB.EXTERNAL_STAGES.JSONASIGNMENT
+file_format = (FORMAT_NAME = MANAGE_DB.FILE_FORMATS.JSONASSIGNMENT)
+files = ('Jobskills.json');
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.JSON_RAW_assignment;
+
+
+
+
+//ASSIGNMENT 2
+SELECT 
+    RAW_FILE:first_name::string as first_name,
+    RAW_FILE:last_name::string as last_name,
+    RAW_FILE:Skills[0]::string as skills_1,
+    RAW_FILE:Skills[1]::string as skills_1
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW_assignment;
+
+
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.JSON_RAW_assignment_insert as
+SELECT 
+    RAW_FILE:first_name::string as first_name,
+    RAW_FILE:last_name::string as last_name,
+    RAW_FILE:Skills[0]::string as skills_1,
+    RAW_FILE:Skills[1]::string as skills_2
+FROM OUR_FIRST_DB.PUBLIC.JSON_RAW_assignment;
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.JSON_RAW_assignment_insert;
